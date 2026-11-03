@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ziehungsabend – Lottozahlen live aufdecken</title>
+<meta name="description" content="Lotto 6aus49 und Eurojackpot: Zahlen nacheinander aufdecken und mitfiebern.">
+<meta name="theme-color" content="#0b1530">
+<style>
+:root{
+  --bg:#0b1530; --bg2:#1a2c5c; --page:#eef1f7; --card:#fff; --ink:#14203d; --muted:#67718a; --line:#e2e6ef;
+  --accent:#ffcc33; --hit:#17a352; --hit-soft:#ddf4e6; --red:#d63a32; --gold:#e9a90e;
+  --radius:18px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:560px;margin:0 auto;padding:0 14px 40px}
+
+/* Header */
+.top{background:var(--bg);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 14px 0}
+.top-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-weight:800;font-size:19px;letter-spacing:.2px}
+.brand span{color:var(--accent)}
+.seg{display:flex;background:rgba(255,255,255,.1);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;color:rgba(255,255,255,.75);padding:7px 13px;border-radius:999px;font-weight:700;font-size:14px}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--bg)}
+
+/* Stage */
+.stage{background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);color:#fff;padding:14px 14px 22px;border-radius:0 0 26px 26px;box-shadow:0 10px 30px rgba(11,21,48,.25)}
+.stage-inner{max-width:560px;margin:0 auto}
+.pickers{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pickers label{font-size:13px;color:rgba(255,255,255,.7);margin-right:2px}
+.pick{appearance:none;-webkit-appearance:none;background:rgba(255,255,255,.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E") no-repeat right 10px center;border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:10px;padding:8px 28px 8px 10px;font-weight:600;font-size:15px}
+.pick option{color:#14203d}
+#drawSel{flex:1;min-width:150px}
+.status{font-size:12.5px;color:rgba(255,255,255,.62);margin-top:8px;min-height:16px}
+.status.warn{color:#ffd76a}
+.status button{background:none;border:0;color:var(--accent);text-decoration:underline;padding:0;font-size:12.5px}
+
+.balls{display:flex;justify-content:center;gap:8px;margin:22px 0 6px;flex-wrap:nowrap}
+.extra-row{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:14px}
+.extra-label{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:rgba(255,255,255,.6);margin-right:4px}
+.ball{--s:46px;width:var(--s);height:var(--s);flex:0 0 var(--s);border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:18px;color:#1b1f2a;
+  background:radial-gradient(circle at 33% 28%,#fff 0 16%,#f3f4f7 38%,#c4c8d3 100%);
+  box-shadow:0 5px 12px rgba(0,0,0,.35),inset -3px -4px 8px rgba(0,0,0,.14);position:relative;font-variant-numeric:tabular-nums}
+.ball.unknown{background:rgba(255,255,255,.07);color:rgba(255,255,255,.3);box-shadow:inset 0 0 0 2px rgba(255,255,255,.14)}
+.ball.sz{background:radial-gradient(circle at 33% 28%,#ffd3cf 0 14%,#ef5a50 45%,#a8211b 100%);color:#fff}
+.ball.euro{background:radial-gradient(circle at 33% 28%,#fff4c7 0 14%,#f7c437 45%,#b47c00 100%);color:#3b2a00}
+.ball.sz.unknown,.ball.euro.unknown{background:rgba(255,255,255,.07);color:rgba(255,255,255,.3)}
+.ball.rolling{animation:wobble .22s linear infinite;filter:blur(.4px)}
+.ball.landed{animation:land .55s cubic-bezier(.25,1.6,.5,1)}
+.ball.hit{background:radial-gradient(circle at 33% 28%,#e6ffef 0 14%,#36cf78 45%,#0d7a3d 100%)!important;color:#fff!important;
+  box-shadow:0 0 0 3px rgba(54,207,120,.45),0 0 26px rgba(54,207,120,.75),inset -3px -4px 8px rgba(0,0,0,.18)}
+.ball.hit::after{content:"✓";position:absolute;right:-4px;top:-4px;width:18px;height:18px;border-radius:50%;background:#fff;color:var(--hit);font-size:11px;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+@keyframes wobble{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(1.5px,-2px) rotate(8deg)}50%{transform:translate(-1px,1px) rotate(-6deg)}75%{transform:translate(1px,2px) rotate(5deg)}100%{transform:translate(0,0) rotate(0)}}
+@keyframes land{0%{transform:scale(.4) translateY(-30px);opacity:.3}100%{transform:scale(1) translateY(0);opacity:1}}
+
+.msg{text-align:center;font-size:16px;font-weight:600;margin:18px 0 14px;min-height:22px}
+.msg.big{font-size:19px;color:var(--accent)}
+.actions{display:flex;justify-content:center;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{border:0;border-radius:999px;padding:12px 22px;font-weight:800;font-size:16px}
+.btn-primary{background:var(--accent);color:#2a2100;box-shadow:0 4px 0 #c99a12}
+.btn-primary:active{transform:translateY(2px);box-shadow:0 2px 0 #c99a12}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:rgba(255,255,255,.12);color:#fff;font-weight:700;font-size:14px;padding:10px 16px}
+.tempo{font-size:13px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:6px}
+.tempo .pick{font-size:13px;padding:6px 26px 6px 8px}
+
+/* Cards */
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-top:16px;box-shadow:0 1px 2px rgba(20,32,61,.06),0 4px 14px rgba(20,32,61,.05)}
+.card h2{font-size:16px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+.card h2 small{font-weight:600;color:var(--muted);font-size:12.5px}
+.hint{font-size:13px;color:var(--muted);margin:6px 0 0;line-height:1.45}
+
+.tip{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px;transition:background .3s,border-color .3s}
+.tip.won{background:var(--hit-soft);border-color:#9fdcb7}
+.tip-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tip-name{font-weight:800;font-size:14px}
+.score{font-size:12.5px;font-weight:700;color:var(--muted)}
+.score.on{color:var(--hit)}
+.tip-head .link{margin-left:auto}
+.link{background:none;border:0;color:#2a56c6;font-weight:700;font-size:14px;padding:4px 2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{min-width:32px;height:32px;padding:0 6px;border-radius:16px;background:#eef1f7;display:inline-grid;place-items:center;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;transition:background .25s,color .25s,transform .25s}
+.chip.euro{background:#fff3cc;color:#6b4d00}
+.chip.sz{background:#fde3e1;color:#9b231d}
+.chip.hit{background:var(--hit);color:#fff;transform:scale(1.08)}
+.chip-sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.empty{color:var(--muted);font-size:14px}
+.result{margin-top:8px;font-size:14px;font-weight:700}
+.result.win{color:#0d7a3d}
+.result.lose{color:var(--muted);font-weight:600}
+.add{width:100%;border:1.5px dashed #c6cddd;background:none;border-radius:14px;padding:12px;font-weight:700;color:#2a56c6}
+.szrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}
+.szrow label{font-weight:700;font-size:14px}
+.sel{border:1px solid #cfd5e3;border-radius:10px;padding:7px 10px;background:#fff;font-weight:700}
+
+details.card summary{font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+details.card summary::after{content:"＋";color:var(--muted)}
+details.card[open] summary::after{content:"－"}
+.form{display:grid;gap:10px;margin-top:12px}
+.form label{font-size:13px;font-weight:700;display:grid;gap:4px}
+.form input{border:1px solid #cfd5e3;border-radius:10px;padding:9px 10px;font-size:15px}
+.form .btn{background:var(--ink);color:#fff;font-size:15px;padding:10px 16px;justify-self:start}
+.err{color:var(--red);font-size:13px;min-height:16px}
+.own{list-style:none;padding:0;margin:10px 0 0;font-size:14px}
+.own li{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+
+footer{font-size:12px;color:var(--muted);text-align:center;margin-top:22px;line-height:1.6}
+footer a{color:inherit}
+
+/* Editor */
+dialog{border:0;border-radius:20px;padding:0;width:min(520px,calc(100vw - 20px));max-height:calc(100vh - 20px);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(11,21,48,.55)}
+.ed{padding:16px}
+.ed-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.ed-head h3{margin:0;font-size:17px}
+.count{font-size:13px;font-weight:700;color:var(--muted)}
+.count.full{color:var(--hit)}
+.count.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.grid.euro{grid-template-columns:repeat(6,1fr)}
+.cell{aspect-ratio:1/1;border:1.5px solid #f0b2ae;background:#fff;color:#c0392b;border-radius:8px;font-weight:700;font-size:15px;padding:0}
+.cell.on{background:#c0392b;border-color:#c0392b;color:#fff}
+.grid.euro .cell{border-color:#efd27a;color:#9a6c00}
+.grid.euro .cell.on{background:#e3a400;border-color:#e3a400;color:#fff}
+.sub{font-size:13px;font-weight:800;margin:14px 0 8px;display:flex;justify-content:space-between}
+.ed-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;align-items:center}
+.ed-actions.end{justify-content:flex-end;margin-top:10px;padding-top:12px;border-top:1px solid var(--line)}
+.b2{border:1px solid #cfd5e3;background:#fff;border-radius:999px;padding:9px 14px;font-weight:700;font-size:14px}
+.b2.danger{color:var(--red);border-color:#f0c2bf}
+.b2.ok{background:var(--ink);border-color:var(--ink);color:#fff}
+.b2.ok:disabled{opacity:.4}
+
+/* Confetti */
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
+.confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
+
+@media (max-width:380px){
+  .ball{--s:40px;font-size:16px}
+  .balls{gap:6px}
+  .seg button{padding:6px 10px;font-size:13px}
+  .brand{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ball.rolling,.ball.landed,.confetti i{animation:none}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">Ziehungs<span>abend</span></div>
+    <div class="seg" role="group" aria-label="Spiel wählen">
+      <button type="button" data-game="lotto" aria-pressed="true">6aus49</button>
+      <button type="button" data-game="ej" aria-pressed="false">Eurojackpot</button>
+    </div>
+  </div>
+</header>
+
+<section class="stage">
+  <div class="stage-inner">
+    <div class="pickers">
+      <label for="yearSel">Ziehung</label>
+      <select id="yearSel" class="pick" aria-label="Jahr"></select>
+      <select id="drawSel" class="pick" aria-label="Ziehungstag"></select>
+    </div>
+    <div class="status" id="status">Lade Ziehungen …</div>
+
+    <div class="balls" id="balls"></div>
+    <div class="extra-row" id="extraRow"></div>
+
+    <div class="msg" id="msg">&nbsp;</div>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="startBtn" disabled>Ziehung starten</button>
+      <button type="button" class="btn btn-ghost" id="skipBtn" hidden>Alles aufdecken</button>
+      <label class="tempo" id="tempoWrap">Tempo
+        <select id="tempoSel" class="pick">
+          <option value="spannend">spannend</option>
+          <option value="normal">normal</option>
+          <option value="schnell">schnell</option>
+        </select>
+      </label>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+  <section class="card">
+    <h2>Deine Tipps <small id="tipCount"></small></h2>
+    <div id="tips"></div>
+    <button type="button" class="add" id="addTip">＋ Tipp hinzufügen</button>
+    <div class="szrow" id="szRow">
+      <label for="szSel">Superzahl</label>
+      <select id="szSel" class="sel" aria-label="Superzahl">
+        <option value="">–</option>
+        <option>0</option><option>1</option><option>2</option><option>3</option><option>4</option>
+        <option>5</option><option>6</option><option>7</option><option>8</option><option>9</option>
+      </select>
+      <span class="hint" style="margin:0">= letzte Ziffer deiner Losnummer, gilt für alle Tipps</span>
+    </div>
+    <p class="hint">Deine Tipps werden automatisch auf diesem Gerät gespeichert.</p>
+  </section>
+
+  <details class="card" id="manual">
+    <summary>Ziehung fehlt? Selbst eintragen</summary>
+    <p class="hint" id="manualHint">Falls eine Ziehung noch nicht im Archiv ist, kannst du sie hier nachtragen. Sie wird nur auf diesem Gerät gespeichert. Tipp: Lass jemand anderen eintragen, dann bleibt es spannend.</p>
+    <div class="form">
+      <label>Datum <input type="date" id="mDate"></label>
+      <label><span id="mMainLabel">Gewinnzahlen (6 aus 49)</span> <input type="text" id="mMain" inputmode="numeric" placeholder="z. B. 3 12 18 27 33 41" autocomplete="off"></label>
+      <label><span id="mExtraLabel">Superzahl</span> <input type="text" id="mExtra" inputmode="numeric" autocomplete="off"></label>
+      <div class="err" id="mErr"></div>
+      <button type="button" class="btn" id="mSave">Ziehung speichern</button>
+    </div>
+    <ul class="own" id="ownList"></ul>
+  </details>
+
+  <footer>
+    Alle Angaben ohne Gewähr. Die Reihenfolge beim Aufdecken ist zufällig, weil die Archive die Zahlen sortiert speichern.<br>
+    Daten: 6aus49 aus <a href="https://github.com/daowa89/lottery-archive" target="_blank" rel="noopener">daowa89/lottery-archive</a>,
+    Eurojackpot aus <code>data/eurojackpot.csv</code>.<br>
+    Glücksspiel kann süchtig machen – <a href="https://www.spielen-mit-verantwortung.de" target="_blank" rel="noopener">spielen-mit-verantwortung.de</a>
+  </footer>
+</main>
+
+<dialog id="editor">
+  <div class="ed">
+    <div class="ed-head"><h3 id="edTitle">Tipp 1</h3><span class="count" id="edCount"></span></div>
+    <div class="grid" id="edMain"></div>
+    <div id="edEuroWrap">
+      <div class="sub"><span>Eurozahlen</span><span class="count" id="edEuroCount"></span></div>
+      <div class="grid euro" id="edEuro"></div>
+    </div>
+    <div class="ed-actions">
+      <button type="button" class="b2" id="edRandom">🎲 Zufall</button>
+      <button type="button" class="b2" id="edClear">Leeren</button>
+      <button type="button" class="b2 danger" id="edDelete">Löschen</button>
+    </div>
+    <div class="ed-actions end">
+      <button type="button" class="b2" id="edCancel">Abbrechen</button>
+      <button type="button" class="b2 ok" id="edOk">Übernehmen</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- Konfiguration ----------
+const BRANCH = 'main';
+// https://<user>.github.io/<repo>/ -> https://raw.githubusercontent.com/<user>/<repo>/main/<path>
+function ownRepoRawUrl(path) {
+  const h = location.hostname;
+  if (!h.endsWith('.github.io')) return null;
+  const user = h.slice(0, -'.github.io'.length);
+  const first = location.pathname.split('/').filter(Boolean)[0];
+  const repo = first && !first.includes('.') ? first : h;   // Nutzerseite <user>.github.io
+  return `https://raw.githubusercontent.com/${user}/${repo}/${BRANCH}/${path}`;
+}
+const GAMES = {
+  lotto: {
+    name: '6aus49', main: 6, max: 49, euro: 0,
+    url: 'https://raw.githubusercontent.com/daowa89/lottery-archive/main/de/lotto_6aus49/results.csv',
+    // CSV: date,n1..n6,superzahl (superzahl leer vor 1992)
+    parseRow: c => ({ date: c[0], n: c.slice(1, 7).map(Number), x: c[7] !== undefined && c[7] !== '' ? [Number(c[7])] : [] }),
+  },
+  ej: {
+    name: 'Eurojackpot', main: 5, max: 50, euro: 2, euroMax: 12,
+    // Auf GitHub Pages zuerst direkt aus dem Repo (immer der neueste Commit der Action),
+    // sonst die mitveröffentlichte Datei.
+    urls: [ownRepoRawUrl('data/eurojackpot.csv'), 'data/eurojackpot.csv'].filter(Boolean),
+    // CSV: date,n1..n5,e1,e2
+    parseRow: c => ({ date: c[0], n: c.slice(1, 6).map(Number), x: c.slice(6, 8).map(Number) }),
+  },
+};
+const MAX_TIPS = 5;
+const TEMPO = {
+  spannend: { gap: 2300, roll: 1700, finale: 1800 },
+  normal:   { gap: 1300, roll: 1000, finale: 1000 },
+  schnell:  { gap: 350,  roll: 380,  finale: 250 },
+};
+const STORE_KEY = 'ziehungsabend.v1';
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+
+// ---------- Speicher ----------
+function defaultStore() {
+  return { game: 'lotto', tempo: 'spannend',
+    lotto: { tips: [], sz: null }, ej: { tips: [] },
+    manual: { lotto: [], ej: [] } };
+}
+function loadStore() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY));
+    if (s && s.lotto && s.ej) return Object.assign(defaultStore(), s);
+  } catch (e) { /* ignorieren */ }
+  return defaultStore();
+}
+const store = loadStore();
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* privat-Modus o. Ä. */ } }
+
+// ---------- Hilfen ----------
+const $ = id => document.getElementById(id);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+const fmtDate = iso => { const [y, m, d] = iso.split('-').map(Number); const wd = WD[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]; return `${wd}, ${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.${y}`; };
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const rnd = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+const sortNum = a => a.slice().sort((p, q) => p - q);
+
+// ---------- Daten ----------
+const data = { lotto: null, ej: null };      // Archiv
+const loadErr = { lotto: null, ej: null };
+
+function parseCSV(text, game) {
+  const g = GAMES[game], out = [];
+  const lines = text.trim().split(/\r?\n/);
+  for (let i = 1; i < lines.length; i++) {
+    const c = lines[i].split(',').map(s => s.trim());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(c[0])) continue;
+    const d = g.parseRow(c);
+    if (d.n.length === g.main && d.n.every(Number.isFinite)) out.push(d);
+  }
+  return out;
+}
+async function loadGame(game) {
+  if (data[game]) return;
+  loadErr[game] = null;
+  const g = GAMES[game];
+  for (const url of g.urls || [g.url]) {
+    try {
+      const r = await fetch(url, { cache: 'no-cache' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const list = parseCSV(await r.text(), game);
+      if (!list.length) throw new Error('keine Daten');
+      data[game] = list; loadErr[game] = null;
+      return;
+    } catch (e) {
+      loadErr[game] = e.message || String(e);
+    }
+  }
+  data[game] = null;
+}
+// Archiv + eigene Einträge, neueste zuerst
+function draws(game) {
+  const map = new Map();
+  for (const d of store.manual[game]) map.set(d.date, Object.assign({ own: true }, d));
+  for (const d of (data[game] || [])) map.set(d.date, d);   // Archiv hat Vorrang
+  return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// ---------- Gewinnklassen ----------
+function lottoClass(hits, szHit) {
+  const t = { '6,1': 1, '6,0': 2, '5,1': 3, '5,0': 4, '4,1': 5, '4,0': 6, '3,1': 7, '3,0': 8, '2,1': 9 };
+  return t[hits + ',' + (szHit ? 1 : 0)] || null;
+}
+function ejClass(hits, euroHits, date) {
+  const t = { '5,2': 1, '5,1': 2, '5,0': 3, '4,2': 4, '4,1': 5, '3,2': 6, '4,0': 7, '2,2': 8, '3,1': 9, '3,0': 10, '1,2': 11, '2,1': 12 };
+  if (date < '2022-03-25') { t['4,0'] = 6; t['3,2'] = 7; }   // alte Reihenfolge bis März 2022
+  return t[hits + ',' + euroHits] || null;
+}
+function describe(game, hits, extraHits, hasExtra) {
+  if (game === 'lotto') return `${hits} Richtige${extraHits ? ' + Superzahl' : ''}`;
+  return `${hits} + ${extraHits} Eurozahl${extraHits === 1 ? '' : 'en'}`;
+}
+
+// ---------- Zustand ----------
+let game = GAMES[store.game] ? store.game : 'lotto';
+let current = null;        // aktuelle Ziehung
+let run = null;            // laufende Animation {token, skip, waiters}
+let revealed = { n: new Set(), x: new Set(), done: false };
+
+// ---------- Rendering: Auswahl ----------
+function renderPickers(keepDate) {
+  const list = draws(game);
+  const ySel = $('yearSel'), dSel = $('drawSel');
+  ySel.innerHTML = ''; dSel.innerHTML = '';
+  if (!list.length) { current = null; resetStage(); return; }
+  const years = [...new Set(list.map(d => d.date.slice(0, 4)))];
+  const target = (keepDate && list.find(d => d.date === keepDate)) || list[0];
+  for (const y of years) ySel.append(new Option(y, y));
+  ySel.value = target.date.slice(0, 4);
+  fillDraws(target.date);
+}
+function fillDraws(selectDate) {
+  const y = $('yearSel').value, dSel = $('drawSel');
+  dSel.innerHTML = '';
+  const list = draws(game).filter(d => d.date.startsWith(y));
+  for (const d of list) dSel.append(new Option(fmtDate(d.date) + (d.own ? ' (eigene)' : ''), d.date));
+  dSel.value = list.some(d => d.date === selectDate) ? selectDate : (list[0] && list[0].date);
+  selectDraw(dSel.value);
+}
+function selectDraw(date) {
+  current = draws(game).find(d => d.date === date) || null;
+  resetStage();
+}
+
+function renderStatus() {
+  const s = $('status');
+  s.className = 'status';
+  if (loadErr[game] && !data[game]) {
+    s.className = 'status warn';
+    s.innerHTML = '';
+    s.append(`Archiv konnte nicht geladen werden (${loadErr[game]}). `);
+    const b = el('button', '', 'Nochmal versuchen');
+    b.onclick = async () => { s.textContent = 'Lade Ziehungen …'; await loadGame(game); renderAll(); };
+    s.append(b);
+    return;
+  }
+  const arch = data[game] || [];
+  if (!arch.length) { s.textContent = 'Lade Ziehungen …'; return; }
+  const last = arch[arch.length - 1].date;
+  const ageDays = (Date.now() - Date.parse(last + 'T21:00:00')) / 864e5;
+  let txt = `${arch.length.toLocaleString('de-DE')} Ziehungen im Archiv · letzte: ${fmtDate(last)}`;
+  if (ageDays > 8) { s.className = 'status warn'; txt += ' – neuere Ziehungen unten selbst eintragen'; }
+  s.textContent = txt;
+}
+
+// ---------- Rendering: Bühne ----------
+function ballEl(cls) { const b = el('div', 'ball unknown ' + (cls || ''), '?'); return b; }
+function resetStage() {
+  cancelRun();
+  revealed = { n: new Set(), x: new Set(), done: false };
+  const g = GAMES[game];
+  const balls = $('balls'); balls.innerHTML = '';
+  for (let i = 0; i < g.main; i++) balls.append(ballEl());
+  const xr = $('extraRow'); xr.innerHTML = '';
+  const xCount = current ? current.x.length : (g.euro || 1);
+  if (xCount) {
+    xr.append(el('span', 'extra-label', game === 'lotto' ? 'Superzahl' : 'Eurozahlen'));
+    for (let i = 0; i < xCount; i++) xr.append(ballEl(game === 'lotto' ? 'sz' : 'euro'));
+  }
+  const msg = $('msg'); msg.className = 'msg';
+  if (!current) msg.textContent = data[game] || loadErr[game] ? 'Keine Ziehung ausgewählt' : ' ';
+  else {
+    let t = 'Bereit? Daumen drücken!';
+    if (game === 'lotto' && current.date < '2013-05-04') t = 'Hinweis: Gewinnklassen nach heutigen Regeln';
+    if (game === 'lotto' && !current.x.length) t = 'Ziehung ohne Superzahl (vor 1992)';
+    msg.textContent = t;
+  }
+  $('startBtn').disabled = !current;
+  $('startBtn').textContent = 'Ziehung starten';
+  $('startBtn').hidden = false;
+  $('skipBtn').hidden = true;
+  $('tempoWrap').hidden = false;
+  renderTips();
+}
+
+// ---------- Rendering: Tipps ----------
+function tipsOf(g) { return store[g].tips; }
+function renderTips() {
+  const g = GAMES[game], box = $('tips');
+  box.innerHTML = '';
+  const tips = tipsOf(game);
+  const szSet = game === 'lotto' && store.lotto.sz !== null;
+  tips.forEach((tip, i) => {
+    const row = el('div', 'tip');
+    const head = el('div', 'tip-head');
+    head.append(el('span', 'tip-name', `Tipp ${i + 1}`));
+    let hits = tip.n.filter(v => revealed.n.has(v)).length;
+    let xHits = 0;
+    if (game === 'ej') xHits = (tip.e || []).filter(v => revealed.x.has(v)).length;
+    else if (szSet && revealed.x.has(store.lotto.sz)) xHits = 1;
+    const sc = el('span', 'score' + (hits || xHits ? ' on' : ''));
+    if (revealed.n.size || revealed.x.size) sc.textContent = describe(game, hits, xHits);
+    head.append(sc);
+    const edit = el('button', 'link', 'Bearbeiten'); edit.type = 'button';
+    edit.onclick = () => openEditor(i);
+    edit.disabled = !!run;
+    head.append(edit);
+    row.append(head);
+
+    const chips = el('div', 'chips');
+    for (const v of tip.n) chips.append(el('span', 'chip' + (revealed.n.has(v) ? ' hit' : ''), v));
+    if (game === 'ej') {
+      chips.append(el('span', 'chip-sep'));
+      for (const v of tip.e || []) chips.append(el('span', 'chip euro' + (revealed.x.has(v) ? ' hit' : ''), v));
+    } else if (szSet) {
+      chips.append(el('span', 'chip-sep'));
+      chips.append(el('span', 'chip sz' + (revealed.x.has(store.lotto.sz) ? ' hit' : ''), 'SZ ' + store.lotto.sz));
+    }
+    row.append(chips);
+
+    if (revealed.done && current) {
+      const cls = game === 'lotto'
+        ? lottoClass(hits, current.x.length && szSet && current.x[0] === store.lotto.sz)
+        : ejClass(hits, xHits, current.date);
+      const r = el('div', 'result ' + (cls ? 'win' : 'lose'),
+        cls ? `🎉 Gewinnklasse ${cls}` : 'Leider kein Gewinn');
+      row.append(r);
+      if (cls) row.classList.add('won');
+    }
+    box.append(row);
+  });
+  if (!tips.length) box.append(el('p', 'empty', 'Noch kein Tipp – leg einen an, damit Treffer grün leuchten.'));
+  $('tipCount').textContent = `${tips.length} von ${MAX_TIPS}`;
+  $('addTip').hidden = tips.length >= MAX_TIPS;
+  $('addTip').disabled = !!run;
+  $('szRow').hidden = game !== 'lotto';
+  $('szSel').value = store.lotto.sz === null ? '' : String(store.lotto.sz);
+  $('szSel').disabled = !!run;
+}
+
+// ---------- Ziehung ----------
+function cancelRun() {
+  if (!run) return;
+  run.cancelled = true; run.skip = true;
+  run.waiters.forEach(f => f()); run = null;
+}
+function wait(ms) {
+  return new Promise(res => {
+    if (!run || run.skip) return res();
+    const t = setTimeout(done, ms);
+    function done() { clearTimeout(t); res(); }
+    run.waiters.push(done);
+  });
+}
+async function roll(ball, value, lo, hi, ms) {
+  ball.classList.remove('unknown');
+  ball.classList.add('rolling');
+  const iv = setInterval(() => { ball.textContent = rnd(lo, hi); }, 65);
+  await wait(ms);
+  clearInterval(iv);
+  ball.classList.remove('rolling');
+  ball.textContent = value;
+  void ball.offsetWidth;          // Animation neu starten
+  ball.classList.add('landed');
+}
+function anyTipHas(v) { return tipsOf(game).some(t => t.n.includes(v)); }
+
+async function startDraw() {
+  if (!current) return;
+  resetStage();
+  const me = run = { waiters: [], skip: false, cancelled: false };
+  const g = GAMES[game], d = current, sp = TEMPO[store.tempo] || TEMPO.spannend;
+  const msg = $('msg');
+  $('startBtn').hidden = true; $('tempoWrap').hidden = true; $('skipBtn').hidden = false;
+  renderTips();
+
+  const balls = [...$('balls').children];
+  const order = shuffle(d.n);
+  for (let i = 0; i < order.length; i++) {
+    if (me.cancelled) return;
+    const last = i === order.length - 1;
+    msg.className = 'msg';
+    msg.textContent = last ? 'Und die letzte Gewinnzahl …' : `${i + 1}. Gewinnzahl …`;
+    await wait(last ? sp.gap + sp.finale : sp.gap);
+    if (me.cancelled) return;
+    await roll(balls[i], order[i], 1, g.max, sp.roll);
+    if (me.cancelled) return;
+    revealed.n.add(order[i]);
+    if (anyTipHas(order[i])) balls[i].classList.add('hit');
+    renderTips();
+  }
+
+  const xBalls = [...$('extraRow').querySelectorAll('.ball')];
+  if (d.x.length) {
+    const xs = game === 'lotto' ? d.x : shuffle(d.x);
+    for (let i = 0; i < xs.length; i++) {
+      if (me.cancelled) return;
+      msg.textContent = game === 'lotto' ? 'Jetzt die Superzahl …' : `${i + 1}. Eurozahl …`;
+      await wait(sp.gap + (i === 0 ? sp.finale / 2 : 0));
+      if (me.cancelled) return;
+      await roll(xBalls[i], xs[i], game === 'lotto' ? 0 : 1, game === 'lotto' ? 9 : 12, sp.roll);
+      if (me.cancelled) return;
+      revealed.x.add(xs[i]);
+      const hit = game === 'lotto'
+        ? store.lotto.sz === xs[i] && tipsOf('lotto').length > 0
+        : tipsOf('ej').some(t => (t.e || []).includes(xs[i]));
+      if (hit) xBalls[i].classList.add('hit');
+      renderTips();
+    }
+  }
+  finish();
+}
+function finish() {
+  revealed.done = true;
+  run = null;
+  renderTips();
+  const tips = tipsOf(game), d = current;
+  let best = null, bestTip = null;
+  tips.forEach((t, i) => {
+    const h = t.n.filter(v => d.n.includes(v)).length;
+    const c = game === 'lotto'
+      ? lottoClass(h, d.x.length && store.lotto.sz !== null && d.x[0] === store.lotto.sz)
+      : ejClass(h, (t.e || []).filter(v => d.x.includes(v)).length, d.date);
+    if (c && (best === null || c < best)) { best = c; bestTip = i + 1; }
+  });
+  const msg = $('msg');
+  if (!tips.length) { msg.className = 'msg'; msg.textContent = 'Alle Zahlen sind gezogen.'; }
+  else if (best) { msg.className = 'msg big'; msg.textContent = `🎉 Gewinnklasse ${best}` + (tips.length > 1 ? ` mit Tipp ${bestTip}!` : '!'); confetti(best); }
+  else { msg.className = 'msg'; msg.textContent = 'Diesmal leider nichts – nächstes Mal!'; }
+  $('skipBtn').hidden = true;
+  $('startBtn').hidden = false; $('startBtn').textContent = 'Nochmal ziehen';
+  $('tempoWrap').hidden = false;
+}
+function skip() {
+  if (!run) return;
+  run.skip = true;
+  run.waiters.splice(0).forEach(f => f());
+}
+
+function confetti(cls) {
+  const n = cls <= 3 ? 160 : cls <= 6 ? 90 : 50;
+  const box = el('div', 'confetti');
+  const colors = ['#ffcc33', '#17a352', '#2a56c6', '#e0413a', '#ffffff', '#9b59b6'];
+  for (let i = 0; i < n; i++) {
+    const c = el('i');
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.animationDuration = (1.8 + Math.random() * 1.8) + 's';
+    c.style.animationDelay = (Math.random() * .6) + 's';
+    c.style.transform = `rotate(${Math.random() * 360}deg)`;
+    box.append(c);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 4500);
+}
+
+// ---------- Tipp-Editor ----------
+let ed = null;     // {index, n:Set, e:Set}
+function openEditor(index) {
+  const g = GAMES[game], tips = tipsOf(game);
+  const t = tips[index] || { n: [], e: [] };
+  ed = { index, isNew: index >= tips.length, n: new Set(t.n), e: new Set(t.e || []) };
+  $('edTitle').textContent = `Tipp ${index + 1} · ${g.name}`;
+  $('edDelete').hidden = ed.isNew;
+  $('edEuroWrap').hidden = !g.euro;
+  buildGrid($('edMain'), 1, g.max, ed.n, g.main, $('edCount'));
+  if (g.euro) buildGrid($('edEuro'), 1, g.euroMax, ed.e, g.euro, $('edEuroCount'));
+  updateEditor();
+  $('editor').showModal();
+}
+function buildGrid(box, lo, hi, set, limit, counter) {
+  box.innerHTML = '';
+  for (let v = lo; v <= hi; v++) {
+    const c = el('button', 'cell' + (set.has(v) ? ' on' : ''), v);
+    c.type = 'button';
+    c.setAttribute('aria-pressed', set.has(v));
+    c.onclick = () => {
+      if (set.has(v)) set.delete(v);
+      else if (set.size < limit) set.add(v);
+      else { counter.classList.remove('shake'); void counter.offsetWidth; counter.classList.add('shake'); return; }
+      c.classList.toggle('on', set.has(v)); c.setAttribute('aria-pressed', set.has(v));
+      updateEditor();
+    };
+    box.append(c);
+  }
+}
+function updateEditor() {
+  const g = GAMES[game];
+  const mc = $('edCount'); mc.textContent = `${ed.n.size} von ${g.main}`; mc.classList.toggle('full', ed.n.size === g.main);
+  let ok = ed.n.size === g.main;
+  if (g.euro) {
+    const ec = $('edEuroCount'); ec.textContent = `${ed.e.size} von ${g.euro}`; ec.classList.toggle('full', ed.e.size === g.euro);
+    ok = ok && ed.e.size === g.euro;
+  }
+  $('edOk').disabled = !ok;
+}
+function fillRandom(set, lo, hi, limit) { while (set.size < limit) set.add(rnd(lo, hi)); }
+$('edRandom').onclick = () => {
+  const g = GAMES[game];
+  const fullMain = ed.n.size === g.main, fullEuro = !g.euro || ed.e.size === g.euro;
+  if (fullMain && fullEuro) { ed.n.clear(); ed.e.clear(); }     // komplett neu würfeln
+  fillRandom(ed.n, 1, g.max, g.main);
+  if (g.euro) fillRandom(ed.e, 1, g.euroMax, g.euro);
+  buildGrid($('edMain'), 1, g.max, ed.n, g.main, $('edCount'));
+  if (g.euro) buildGrid($('edEuro'), 1, g.euroMax, ed.e, g.euro, $('edEuroCount'));
+  updateEditor();
+};
+$('edClear').onclick = () => { ed.n.clear(); ed.e.clear(); const g = GAMES[game];
+  buildGrid($('edMain'), 1, g.max, ed.n, g.main, $('edCount'));
+  if (g.euro) buildGrid($('edEuro'), 1, g.euroMax, ed.e, g.euro, $('edEuroCount'));
+  updateEditor(); };
+$('edCancel').onclick = () => $('editor').close();
+$('edDelete').onclick = () => { tipsOf(game).splice(ed.index, 1); save(); $('editor').close(); renderTips(); };
+$('edOk').onclick = () => {
+  const t = { n: sortNum([...ed.n]) };
+  if (GAMES[game].euro) t.e = sortNum([...ed.e]);
+  const tips = tipsOf(game);
+  if (ed.isNew) tips.push(t); else tips[ed.index] = t;
+  save(); $('editor').close(); renderTips();
+};
+$('editor').addEventListener('click', e => { if (e.target === $('editor')) $('editor').close(); });
+
+// ---------- Ziehung manuell eintragen ----------
+function nums(s) { return (s.match(/\d+/g) || []).map(Number); }
+function renderManual() {
+  const g = GAMES[game];
+  $('mMainLabel').textContent = `Gewinnzahlen (${g.main} aus ${g.max})`;
+  $('mExtraLabel').textContent = game === 'lotto' ? 'Superzahl (0–9)' : 'Eurozahlen (2 aus 12)';
+  $('mMain').placeholder = game === 'lotto' ? 'z. B. 3 12 18 27 33 41' : 'z. B. 5 14 25 26 44';
+  $('mExtra').placeholder = game === 'lotto' ? 'z. B. 7' : 'z. B. 8 10';
+  $('mErr').textContent = '';
+  const ul = $('ownList'); ul.innerHTML = '';
+  for (const d of store.manual[game].slice().sort((a, b) => b.date.localeCompare(a.date))) {
+    const li = el('li');
+    li.append(el('span', '', `${fmtDate(d.date)}: ${d.n.join(' ')} | ${d.x.join(' ')}`));
+    const del = el('button', 'link', 'Entfernen'); del.type = 'button';
+    del.onclick = () => { store.manual[game] = store.manual[game].filter(x => x.date !== d.date); save(); renderManual(); renderPickers(current && current.date); };
+    li.append(del); ul.append(li);
+  }
+}
+$('mSave').onclick = () => {
+  const g = GAMES[game], err = $('mErr');
+  const date = $('mDate').value, n = nums($('mMain').value), x = nums($('mExtra').value);
+  const xMax = game === 'lotto' ? 9 : 12, xMin = game === 'lotto' ? 0 : 1, xCount = game === 'lotto' ? 1 : 2;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err.textContent = 'Bitte ein Datum wählen.';
+  if (n.length !== g.main || new Set(n).size !== g.main || n.some(v => v < 1 || v > g.max))
+    return err.textContent = `Bitte genau ${g.main} verschiedene Zahlen von 1 bis ${g.max} eingeben.`;
+  if (x.length !== xCount || new Set(x).size !== xCount || x.some(v => v < xMin || v > xMax))
+    return err.textContent = game === 'lotto' ? 'Superzahl: eine Ziffer von 0 bis 9.' : 'Eurozahlen: zwei verschiedene Zahlen von 1 bis 12.';
+  if ((data[game] || []).some(d => d.date === date)) return err.textContent = 'Diese Ziehung ist schon im Archiv.';
+  store.manual[game] = store.manual[game].filter(d => d.date !== date);
+  store.manual[game].push({ date, n: sortNum(n), x: game === 'lotto' ? x : sortNum(x) });
+  save();
+  $('mMain').value = ''; $('mExtra').value = '';
+  renderManual(); renderPickers(date);
+};
+
+// ---------- Events ----------
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => switchGame(b.dataset.game));
+$('yearSel').onchange = () => fillDraws(null);
+$('drawSel').onchange = e => selectDraw(e.target.value);
+$('startBtn').onclick = startDraw;
+$('skipBtn').onclick = skip;
+$('tempoSel').onchange = e => { store.tempo = e.target.value; save(); };
+$('addTip').onclick = () => openEditor(tipsOf(game).length);
+$('szSel').onchange = e => { store.lotto.sz = e.target.value === '' ? null : Number(e.target.value); save(); renderTips(); };
+
+async function switchGame(gm) {
+  cancelRun();
+  game = gm; store.game = gm; save();
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.game === gm));
+  current = null;
+  renderAll();
+  if (!data[gm]) { await loadGame(gm); if (game === gm) renderAll(); }
+}
+function renderAll() {
+  renderStatus();
+  renderPickers(null);
+  renderManual();
+}
+
+$('tempoSel').value = TEMPO[store.tempo] ? store.tempo : 'spannend';
+switchGame(game);
+})();
+</script>
+</body>
+</html>
