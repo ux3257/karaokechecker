@@ -11,16 +11,6 @@ Lottozahlen nacheinander aufdecken und mitfiebern – für **Lotto 6aus49** und 
 
 Die App ist eine einzige statische HTML-Seite ohne Server und ohne Abhängigkeiten.
 
-## Auf GitHub Pages veröffentlichen
-
-1. Neues Repository anlegen und den **gesamten** Inhalt dieses Ordners hochladen, also auch den
-   versteckten Ordner `.github/`. Am einfachsten geht das per `git push`. Beim Hochladen im Browser
-   werden versteckte Ordner leicht vergessen.
-2. **Settings → Pages**: Source „Deploy from a branch“, Branch `main`, Ordner `/ (root)`.
-3. Nach ca. einer Minute läuft die App unter `https://<dein-name>.github.io/<repo>/`.
-
-Lokal testen: `python3 -m http.server` im Ordner starten und `http://localhost:8000` öffnen.
-Ein Doppelklick auf `index.html` reicht nicht, weil der Browser dann keine Daten laden darf.
 
 ## Eurojackpot automatisch aktualisieren
 
