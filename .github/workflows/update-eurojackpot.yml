@@ -1,12 +1,15 @@
 name: Eurojackpot-Zahlen aktualisieren
 
+# GitHub startet geplante Läufe oft verspätet (teils Stunden) oder lässt einzelne aus.
+# Deshalb viele Versuche rund um die Ziehung. Ist die CSV schon aktuell, beendet sich
+# das Skript nach wenigen Sekunden, ohne eine Quelle abzufragen.
 on:
   schedule:
-    # Ziehung Di + Fr ca. 21 Uhr deutscher Zeit. Zeiten in UTC.
-    - cron: "40 21 * * 2,5"   # Di/Fr spätabends
-    - cron: "17 5 * * 3,6"    # Mi/Sa früh (Nachzügler, zweite Quelle)
-    - cron: "17 16 * * 3,6"   # Mi/Sa nachmittags
-  workflow_dispatch:           # manuell über den Actions-Tab
+    # Zeiten in UTC. Ziehung Di + Fr ca. 20–21 Uhr deutscher Zeit.
+    - cron: "7,27,47 20-23 * * 2,5"   # Di/Fr abends alle 20 Minuten
+    - cron: "17,47 0-7 * * 3,6"       # Mi/Sa nachts und morgens alle 30 Minuten
+    - cron: "37 11 * * *"             # täglich als Sicherheitsnetz
+  workflow_dispatch:                   # manuell: prüft immer alle Quellen
 
 permissions:
   contents: write
