@@ -1,4 +1,4 @@
-# Ziehungsabend
+# Karaokechecker
 
 Lottozahlen nacheinander aufdecken und mitfiebern – für **Lotto 6aus49** und **Eurojackpot**.
 
@@ -11,33 +11,57 @@ Lottozahlen nacheinander aufdecken und mitfiebern – für **Lotto 6aus49** und 
 
 Die App ist eine einzige statische HTML-Seite ohne Server und ohne Abhängigkeiten.
 
+## Auf GitHub Pages veröffentlichen
+
+1. Neues Repository anlegen und den **gesamten** Inhalt dieses Ordners hochladen, also auch den
+   versteckten Ordner `.github/`. Am einfachsten geht das per `git push`. Beim Hochladen im Browser
+   werden versteckte Ordner leicht vergessen.
+2. **Settings → Pages**: Source „Deploy from a branch“, Branch `main`, Ordner `/ (root)`.
+3. Nach ca. einer Minute läuft die App unter `https://<dein-name>.github.io/<repo>/`.
+
+Lokal testen: `python3 -m http.server` im Ordner starten und `http://localhost:8000` öffnen.
+Ein Doppelklick auf `index.html` reicht nicht, weil der Browser dann keine Daten laden darf.
+
+## Auf dem Handy installieren
+
+Die App ist eine installierbare Web-App (PWA): `manifest.webmanifest`, `sw.js` und `icons/`.
+
+- **Android (Chrome):** Seite öffnen → Menü ⋮ → **App installieren** (oder „Zum Startbildschirm hinzufügen“).
+- **iPhone (Safari):** Teilen-Symbol → **Zum Home-Bildschirm**.
+
+Danach startet sie mit eigenem Icon ohne Browserleiste. Offline zeigt sie die zuletzt geladenen Ziehungen.
+Neue Versionen von `index.html` lädt sie im Hintergrund und zeigt sie beim nächsten Öffnen.
+Ändert sich etwas Grundlegendes, `VERSION` in `sw.js` hochzählen.
 
 ## Eurojackpot automatisch aktualisieren
 
 Die Workflow-Datei `.github/workflows/update-eurojackpot.yml` startet `scripts/update_eurojackpot.py`:
 
-- **Wann:** Di und Fr um 22:40 Uhr (Winterzeit), dazu Mi und Sa morgens und nachmittags als Nachzügler.
-  Manuell geht es über **Actions → „Eurojackpot-Zahlen aktualisieren“ → Run workflow**.
-- **Was:** Das Skript liest die Jahresarchive von zwei unabhängigen Seiten
-  ([euro-jackpot.net](https://www.euro-jackpot.net/de/gewinnzahlen-archiv-2026) und
-  [eurojackpot-zahlen.eu](https://www.eurojackpot-zahlen.eu/eurojackpot-zahlenarchiv.php)) und hängt neue Ziehungen an
-  `data/eurojackpot.csv` an, mit einem Commit des `github-actions[bot]`.
+- **Wann:** Di und Fr abends alle 20 Minuten, Mi und Sa nachts bis morgens alle 30 Minuten, dazu einmal täglich.
+  GitHub startet geplante Läufe oft verspätet oder lässt einzelne aus, deshalb die vielen Versuche.
+  Ist die CSV schon aktuell, beendet sich der Lauf nach Sekunden, ohne eine Seite abzurufen.
+  Manuell geht es über **Actions → „Eurojackpot-Zahlen aktualisieren“ → Run workflow**. Das prüft immer alle Quellen.
+- **Was:** Das Skript liest die Jahresarchive von drei unabhängigen Seiten:
+  [euro-jackpot.net](https://www.euro-jackpot.net/de/gewinnzahlen-archiv-2026),
+  [eurojackpot-zahlen.eu](https://www.eurojackpot-zahlen.eu/eurojackpot-zahlenarchiv.php) und
+  [lotterien1x1.de](https://www.lotterien1x1.de/eurojackpot/archiv/2026).
+  Neue Ziehungen hängt es an `data/eurojackpot.csv` an.
 - **Sicherungen:**
-  - Übernommen wird eine Ziehung nur, wenn beide Quellen sie identisch liefern. Kennt sie nur eine Quelle,
-    wird sie erst nach 2 Tagen übernommen, mit einer Warnung im Log.
-  - Widersprechen sich die Quellen, wird nichts geschrieben und der Lauf schlägt fehl.
-    GitHub schickt dir dann eine Mail.
-  - Selbsttest bei jedem Lauf: Die Ziehungen, die schon in der CSV stehen, müssen mit dem übereinstimmen,
-    was der Parser liest. Ändert eine Seite ihren Aufbau, fällt das sofort auf.
+  - Übernommen wird eine Ziehung, sobald zwei Quellen sie identisch liefern. Fällt eine Quelle aus, reichen die anderen beiden.
+    Weicht eine dritte ab, gilt die Mehrheit, mit einer Warnung im Log.
+  - Kennt nur eine Quelle die Ziehung, wird sie erst nach 2 Tagen übernommen, ebenfalls mit Warnung.
+  - Gibt es keine Mehrheit, wird nichts geschrieben und der Lauf schlägt fehl. GitHub schickt dann eine Mail.
+  - Selbsttest bei jedem Abruf: Die Ziehungen, die schon in der CSV stehen, müssen mit dem übereinstimmen, was gelesen wurde.
   - Jede Ziehung wird geprüft: 5 aus 50, 2 Eurozahlen, Ziehungstag Di/Fr.
-- Nur Python-Standardbibliothek, keine Pakete. Trockenlauf lokal: `python3 scripts/update_eurojackpot.py --dry-run`
+- **Zusammenfassung:** Auf der Seite jedes Laufs steht eine Tabelle mit allen Quellen (erreichbar oder Fehler, neueste Ziehung)
+  und was übernommen wurde. Dafür muss man das Log nicht öffnen.
+- Nur Python-Standardbibliothek. Trockenlauf lokal: `python3 scripts/update_eurojackpot.py --dry-run --force`
 
-**Beim ersten Mal:** Starte den Workflow einmal manuell und schau ins Log. Dort muss bei beiden Quellen
-„Selbsttest x/x bekannte Ziehungen stimmen“ stehen. Bricht der Lauf beim `git push` mit „Permission denied“ ab,
-setze unter **Settings → Actions → General → Workflow permissions** „Read and write permissions“.
+Bricht ein Lauf beim `git push` mit „Permission denied“ ab, setze unter
+**Settings → Actions → General → Workflow permissions** „Read and write permissions“.
 
 Auf GitHub Pages lädt die App die CSV direkt aus dem Repo (`raw.githubusercontent.com/<name>/<repo>/main/…`).
-So sind neue Ziehungen sichtbar, sobald die Action committet hat, egal ob die Pages-Seite schon neu gebaut ist.
+So sind neue Ziehungen sichtbar, sobald die Action committet hat.
 Heißt dein Branch nicht `main`, passe `BRANCH` oben im Script-Teil von `index.html` an.
 
 ## Datenquellen
@@ -45,7 +69,7 @@ Heißt dein Branch nicht `main`, passe `BRANCH` oben im Script-Teil von `index.h
 | Spiel | Quelle |
 |---|---|
 | 6aus49 | wird direkt geladen von [daowa89/lottery-archive](https://github.com/daowa89/lottery-archive) (`de/lotto_6aus49/results.csv`), dort an jedem Ziehungstag aktualisiert |
-| Eurojackpot | `data/eurojackpot.csv` in diesem Repo: 23.03.2012 – 01.11.2024 aus dem npm-Paket `tsch-ej-numbers` (ISC-Lizenz), ab 05.11.2024 aus den beiden oben genannten Archiven (jede Ziehung in beiden Quellen identisch) |
+| Eurojackpot | `data/eurojackpot.csv` in diesem Repo: 23.03.2012 – 01.11.2024 aus dem npm-Paket `tsch-ej-numbers` (ISC-Lizenz), ab 05.11.2024 aus den oben genannten Archiven (jede Ziehung von mindestens zwei Quellen bestätigt) |
 
 Format `data/eurojackpot.csv`:
 

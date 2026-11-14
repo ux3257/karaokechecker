@@ -6,6 +6,13 @@
 <title>Karaokechecker – Lottozahlen live aufdecken</title>
 <meta name="description" content="Lotto 6aus49 und Eurojackpot: Zahlen nacheinander aufdecken und mitfiebern.">
 <meta name="theme-color" content="#0b1530">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Karaokechecker">
 <style>
 :root{
   --bg:#0b1530; --bg2:#1a2c5c; --page:#eef1f7; --card:#fff; --ink:#14203d; --muted:#67718a; --line:#e2e6ef;
@@ -750,6 +757,11 @@ function renderAll() {
 
 $('tempoSel').value = TEMPO[store.tempo] ? store.tempo : 'spannend';
 switchGame(game);
+
+// Installierbar / offline (nur über http(s), nicht bei file://)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 })();
 </script>
 </body>

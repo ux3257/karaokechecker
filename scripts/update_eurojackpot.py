@@ -2,23 +2,28 @@
 """
 Holt neue Eurojackpot-Ziehungen und hängt sie an data/eurojackpot.csv an.
 
-Zwei unabhängige Archivseiten werden gelesen und gegeneinander geprüft:
-  A  https://www.euro-jackpot.net/de/gewinnzahlen-archiv-JJJJ
-  B  https://www.eurojackpot-zahlen.eu/eurojackpot-zahlenarchiv.php?j=JJJJ
+Drei unabhängige Archivseiten werden gelesen und gegeneinander geprüft:
+  euro-jackpot.net       https://www.euro-jackpot.net/de/gewinnzahlen-archiv-JJJJ
+  eurojackpot-zahlen.eu  https://www.eurojackpot-zahlen.eu/eurojackpot-zahlenarchiv.php?j=JJJJ
+  lotterien1x1.de        https://www.lotterien1x1.de/eurojackpot/archiv/JJJJ
 
 Regeln
-  * Eine neue Ziehung wird übernommen, wenn beide Quellen sie identisch liefern.
+  * Eine neue Ziehung wird übernommen, sobald mindestens zwei Quellen sie
+    identisch liefern. Weicht eine dritte ab, gilt die Mehrheit (Warnung im Log).
   * Liefert nur eine Quelle die Ziehung, wird sie erst übernommen, wenn sie
     mindestens SINGLE_SOURCE_AFTER_DAYS Tage alt ist (Warnung im Log).
-  * Widersprechen sich die Quellen, wird nichts geschrieben und das Skript
-    endet mit Fehler (GitHub schickt dann eine Mail).
+  * Gibt es keine Mehrheit, wird nichts geschrieben und das Skript endet mit
+    Fehler (GitHub schickt dann eine Mail).
   * Selbsttest: Ziehungen, die schon in der CSV stehen, müssen mit den
     gelesenen Werten übereinstimmen – sonst ist der Parser kaputt -> Fehler.
+  * Ist die CSV schon aktuell (letzte fällige Ziehung vorhanden), wird keine
+    Seite abgerufen. Manuelle Läufe (workflow_dispatch) prüfen immer.
 
 Nur Python-Standardbibliothek, keine Installation nötig.
 
   python scripts/update_eurojackpot.py            # aktualisieren
   python scripts/update_eurojackpot.py --dry-run  # nur anzeigen, nichts schreiben
+  python scripts/update_eurojackpot.py --force    # auch abrufen, wenn aktuell
 """
 from __future__ import annotations
 
@@ -26,7 +31,9 @@ import argparse
 import csv
 import datetime as dt
 import html
+import os
 import re
+from collections import Counter
 import sys
 import time
 import urllib.request
@@ -36,7 +43,10 @@ CSV_PATH = Path(__file__).resolve().parent.parent / "data" / "eurojackpot.csv"
 SOURCES = {
     "euro-jackpot.net": "https://www.euro-jackpot.net/de/gewinnzahlen-archiv-{year}",
     "eurojackpot-zahlen.eu": "https://www.eurojackpot-zahlen.eu/eurojackpot-zahlenarchiv.php?j={year}",
+    "lotterien1x1.de": "https://www.lotterien1x1.de/eurojackpot/archiv/{year}",
 }
+# Ab wann (UTC) eine Ziehung als „fällig“ gilt: Ziehung ca. 20–21 Uhr dt. Zeit
+DUE_AFTER_UTC = dt.time(20, 30)
 SINGLE_SOURCE_AFTER_DAYS = 2
 USER_AGENT = "Mozilla/5.0 (compatible; ziehungsabend-updater/1.0)"
 
@@ -53,6 +63,35 @@ DATE_RE = re.compile(
 INT_RE = re.compile(r"(?<![\d.,:])\d{1,2}(?![\d.,:])")
 
 Draw = tuple  # (n1..n5, e1, e2)
+
+
+def now_utc() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def last_due_draw(now: dt.datetime) -> dt.date:
+    """Letzter Di/Fr, dessen Ergebnisse inzwischen veröffentlicht sein sollten."""
+    d = now.date()
+    for _ in range(8):
+        if d.weekday() in (1, 4):
+            if now >= dt.datetime.combine(d, DUE_AFTER_UTC, tzinfo=dt.timezone.utc):
+                return d
+        d -= dt.timedelta(days=1)
+    raise RuntimeError("kein Ziehungstag gefunden")
+
+
+SUMMARY: list[str] = []
+
+
+def summary(line: str) -> None:
+    SUMMARY.append(line)
+
+
+def write_summary() -> None:
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path and SUMMARY:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("\n".join(SUMMARY) + "\n")
 
 
 def log(msg: str) -> None:
@@ -98,7 +137,7 @@ def parse_archive(page: str, year: int) -> tuple[dict[str, Draw], list[str]]:
     draws: dict[str, Draw] = {}
     conflicted: set[str] = set()
     problems: list[str] = []
-    today = dt.date.today()
+    today = now_utc().date()
     for i, m in enumerate(matches):
         try:
             if m.group(1):
@@ -171,29 +210,52 @@ def collect(years: list[int]) -> tuple[dict[str, dict[str, Draw]], list[str]]:
                     warn(f"{name}: {p}")
                 found.update(draws)
             per_source[name] = found
-            log(f"{name}: {len(found)} Ziehungen gelesen"
-                + (f", neueste {max(found)}" if found else ""))
+            newest = max(found) if found else "–"
+            log(f"{name}: {len(found)} Ziehungen gelesen, neueste {newest}")
+            summary(f"| {name} | ✅ erreichbar | {len(found)} | {newest} |")
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{name}: {exc}")
             warn(f"Quelle nicht erreichbar – {name}: {exc}")
+            summary(f"| {name} | ❌ {str(exc)[-80:]} | – | – |")
     return per_source, errors
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="nichts schreiben")
+    ap.add_argument("--force", action="store_true", help="auch abrufen, wenn die CSV aktuell ist")
     args = ap.parse_args()
+    SUMMARY.clear()
+    try:
+        return run(args)
+    finally:
+        write_summary()
 
-    today = dt.date.today()
+
+def run(args) -> int:
+    now = now_utc()
+    today = now.date()
     existing = read_csv()
     last = max(existing)
-    years = sorted({today.year, dt.date.fromisoformat(last).year})
-    log(f"CSV: {len(existing)} Ziehungen, letzte {last}. Lese Jahre {years}.")
+    due = last_due_draw(now).isoformat()
+    force = args.force or os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+    log(f"CSV: {len(existing)} Ziehungen, letzte {last}. Letzte fällige Ziehung: {due}.")
+    summary("### Eurojackpot-Update")
+    summary(f"CSV bis **{last}**, letzte fällige Ziehung **{due}**\n")
+    if last >= due and not force:
+        log("CSV ist aktuell – nichts abzurufen.")
+        summary("✅ Aktuell, keine Quelle abgefragt.")
+        return 0
 
-    per_source, errors = collect(years)
+    years = sorted({today.year, dt.date.fromisoformat(last).year})
+    log(f"Lese Jahre {years}.")
+    summary("| Quelle | Status | Ziehungen | neueste |\n|---|---|---|---|")
+    per_source, _errors = collect(years)
+    summary("")
     usable = {k: v for k, v in per_source.items() if v}
     if not usable:
         log("::error::Keine Quelle lieferte Daten. Seiten erreichbar? Aufbau geändert?")
+        summary("❌ Keine Quelle lieferte Daten.")
         return 1
 
     # Selbsttest gegen bekannte Ziehungen
@@ -204,6 +266,7 @@ def main() -> int:
         log(f"{name}: Selbsttest {len(overlap) - len(bad)}/{len(overlap)} bekannte Ziehungen stimmen")
         if bad:
             log(f"::error::{name} weicht bei bekannten Ziehungen ab: {bad[:5]} – Parser prüfen")
+            summary(f"❌ Selbsttest {name}: Abweichung bei {', '.join(bad[:5])}")
             failed = True
         if not overlap:
             warn(f"{name}: keine Überlappung mit der CSV – Selbsttest nicht möglich")
@@ -213,29 +276,38 @@ def main() -> int:
     # Neue Ziehungen zusammenführen
     candidates = sorted({d for draws in usable.values() for d in draws if d > last})
     accepted: list[tuple[str, Draw]] = []
+    waiting = None
     for date in candidates:
         values = {name: draws[date] for name, draws in usable.items() if date in draws}
-        distinct = set(values.values())
-        if len(distinct) > 1:
-            log(f"::error::{date}: Quellen widersprechen sich: {values}")
-            return 1
-        draw = distinct.pop()
-        if len(values) == len(SOURCES):
+        (draw, votes), *rest = Counter(values.values()).most_common()
+        if votes >= 2:
+            if rest:
+                warn(f"{date}: Quellen uneinig {values} – Mehrheit übernommen")
             accepted.append((date, draw))
             continue
+        if len(values) >= 2:  # mehrere Quellen, alle verschieden
+            log(f"::error::{date}: keine Mehrheit unter den Quellen: {values}")
+            summary(f"❌ {date}: Quellen widersprechen sich – bitte prüfen.")
+            return 1
         age = (today - dt.date.fromisoformat(date)).days
         if age >= SINGLE_SOURCE_AFTER_DAYS:
             warn(f"{date}: nur von {list(values)} bestätigt (seit {age} Tagen) – übernommen")
             accepted.append((date, draw))
         else:
             log(f"{date}: bisher nur in {list(values)} – warte auf zweite Quelle")
+            waiting = date
             break  # Reihenfolge wahren: keine späteren Ziehungen vor dieser eintragen
 
-    if not accepted:
-        log("Keine neuen Ziehungen.")
-        return 0
     for date, draw in accepted:
         log(f"neu: {date}  {' '.join(map(str, draw[:5]))} | {draw[5]} {draw[6]}")
+        summary(f"➕ **{date}**: {' '.join(map(str, draw[:5]))} · Eurozahlen {draw[5]} {draw[6]}")
+    if waiting:
+        summary(f"⏳ {waiting}: erst in einer Quelle – nächster Lauf prüft erneut.")
+    if not accepted:
+        log("Keine neuen Ziehungen.")
+        if not waiting:
+            summary("Keine neuen Ziehungen in den Quellen.")
+        return 0
     if args.dry_run:
         log("--dry-run: nichts geschrieben.")
     else:
